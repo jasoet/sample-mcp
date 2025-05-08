@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/FreePeak/cortex/pkg/server"
+	"github.com/FreePeak/cortex/pkg/tools"
 	"log"
 	"os"
 	"sample-mcp/config"
-	"time"
-
-	"github.com/FreePeak/cortex/pkg/server"
-	"github.com/FreePeak/cortex/pkg/tools"
+	"sample-mcp/handler"
 )
 
 func main() {
@@ -34,7 +33,7 @@ func main() {
 	)
 
 	ctx := context.Background()
-	err = mcpServer.AddTool(ctx, echoTool, handleEcho)
+	err = mcpServer.AddTool(ctx, echoTool, handler.HandleEcho)
 	if err != nil {
 		logger.Fatalf("Error adding echo tool: %v", err)
 	}
@@ -46,25 +45,4 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "Error serving stdio: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-func handleEcho(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
-	log.Printf("Handling echo tool call with name: %s", request.Name)
-
-	message, ok := request.Parameters["message"].(string)
-	if !ok {
-		return nil, fmt.Errorf("missing or invalid 'message' parameter")
-	}
-
-	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	responseMessage := fmt.Sprintf("[%s] %s", timestamp, message)
-
-	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": responseMessage,
-			},
-		},
-	}, nil
 }
