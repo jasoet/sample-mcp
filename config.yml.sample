@@ -1,0 +1,22 @@
+# Sample MCP Server Configuration
+
+# Database configuration
+database:
+  # Database type: MYSQL, POSTGRES, or MSSQL
+  dbType: POSTGRES
+  # Database host
+  host: localhost
+  # Database port
+  port: 5432
+  # Database username
+  username: jasoet
+  # Database password
+  password: localhost
+  # Database name
+  dbName: mcp_db
+  # Connection timeout in seconds
+  timeout: 3s
+  # Maximum number of idle connections
+  maxIdleConns: 5
+  # Maximum number of open connections
+  maxOpenConns: 10

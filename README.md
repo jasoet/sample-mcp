@@ -105,15 +105,43 @@ This project uses [Mage](https://magefile.org/) for build automation. Available 
 - `mage docker:restart` - Restart Docker services
 - `mage clean` - Clean build artifacts
 
-## Database Configuration
+## Configuration
+
+### Configuration File
+
+The application can be configured using a `config.yml` file. The configuration file can be placed in the same directory as the binary or specified using the `MCP_SERVER_CONFIG` environment variable.
+
+A sample configuration file is provided in `config.yml.sample`. You can copy this file to `config.yml` and modify it according to your needs.
+
+```bash
+# Copy the sample configuration file
+cp config.yml.sample config.yml
+
+# Edit the configuration file
+nano config.yml
+```
+
+### Environment Variable
+
+You can specify the path to the configuration file using the `MCP_SERVER_CONFIG` environment variable:
+
+```bash
+export MCP_SERVER_CONFIG=/path/to/your/config.yml
+```
+
+### Database Configuration
 
 The PostgreSQL database is configured with the following default settings:
 
+- **Type**: POSTGRES (also supports MYSQL and MSSQL)
 - **Host**: localhost (or postgres in Docker network)
 - **Port**: 5432
 - **User**: jasoet
 - **Password**: localhost
 - **Database**: mcp_db
+- **Timeout**: 3 seconds
+- **Max Idle Connections**: 5
+- **Max Open Connections**: 10
 
 ## License
 
