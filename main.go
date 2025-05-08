@@ -8,7 +8,9 @@ import (
 	"log"
 	"os"
 	"sample-mcp/config"
+	"sample-mcp/db"
 	"sample-mcp/handler"
+	"sample-mcp/ops"
 )
 
 func main() {
@@ -21,6 +23,23 @@ func main() {
 	}
 	logger.Printf("Database configuration loaded: Type=%s, Host=%s, Port=%d, Database=%s",
 		cfg.Database.DbType, cfg.Database.Host, cfg.Database.Port, cfg.Database.DbName)
+
+	dbConfig := cfg.Database
+	pool, err := dbConfig.Pool()
+	if err != nil {
+		logger.Fatalf("Failed to load database: %v", err)
+	}
+
+	err = db.RunMigrations(pool)
+	if err != nil {
+		logger.Fatalf("Failed to rung migration: %v", err)
+	}
+
+	// use query ops to execute query
+	_, err = ops.NewQueryOps(ops.WithGormDB(pool))
+	if err != nil {
+		logger.Fatalf("Failed to initiate query ops: %v", err)
+	}
 
 	mcpServer := server.NewMCPServer("Cortex Stdio Server", "1.0.0", logger)
 

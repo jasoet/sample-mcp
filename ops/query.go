@@ -70,7 +70,6 @@ func NewQueryOps(options ...QueryOption) (*QueryOps, error) {
 	return q, nil
 }
 
-// Legacy constructor for backward compatibility
 func NewQueryOpsWithRepositories(
 	accountRepo *repository.AccountRepository,
 	categoryRepo *repository.CategoryRepository,
