@@ -23,18 +23,23 @@ func TestRunMigrations(t *testing.T) {
 		MaxOpenConns: 10,
 	}
 
-	db, err := config.SqlDB()
+	db, err := config.Pool()
 	if err != nil {
 		t.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+
+	sqlDb, err := db.DB()
+	if err != nil {
+		t.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer sqlDb.Close()
 
 	err = RunMigrations(db)
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	tablesExist, err := verifyTablesExist(db)
+	tablesExist, err := verifyTablesExist(sqlDb)
 	if err != nil {
 		t.Fatalf("Failed to verify tables: %v", err)
 	}

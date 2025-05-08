@@ -30,8 +30,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	sqlDb, err := pool.DB()
-	err = db.RunMigrations(sqlDb)
+	err = db.RunMigrations(pool)
 	if err != nil {
 		panic(err)
 	}
