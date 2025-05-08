@@ -1,11 +1,11 @@
-project_name: cortex-mcp
+project_name: sample-mcp
 
 before:
   hooks:
     - go mod tidy
     - go mod vendor
 builds:
-  - id: cortex-mcp
+  - id: sample-mcp
     main: ./main.go
     goos:
       - linux
