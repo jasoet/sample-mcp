@@ -1,0 +1,22 @@
+name: cortex-mcp
+services:
+  
+  postgres:
+    image: postgres:latest
+    hostname: postgres  # Added explicit hostname
+    environment:
+      - POSTGRES_USER=jasoet
+      - POSTGRES_PASSWORD=localhost
+      - POSTGRES_DB=mcp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mcp
+
+networks:
+  mcp:
+
+volumes:
+  postgres_data:

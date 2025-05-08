@@ -1,0 +1,31 @@
+project_name: cortex-mcp
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod vendor
+builds:
+  - id: cortex-mcp
+    main: ./main.go
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+checksum:
+  name_template: 'checksums.txt'
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format: zip
+    files:
+      - src: app/default_config.yaml
+        dst: config.yaml
+      - README.md
