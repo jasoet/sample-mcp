@@ -216,8 +216,5 @@ sim_output
 
 aof/
 
-# Goers API configuration with sensitive data
-goers/goers_config.json
-ops/goers_config.json
-worker/goers_config.json
+mcp-server
 
