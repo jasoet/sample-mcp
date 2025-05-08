@@ -17,9 +17,9 @@ It uses Go with GORM for database operations and PostgreSQL for data storage.
 
 - `compose/` - Docker Compose configuration for local development
 - `db/` - Database related code
-  - `entity/` - Data model definitions
-  - `migrations/` - Database migration scripts
-  - `repository/` - Data access layer implementations
+    - `entity/` - Data model definitions
+    - `migrations/` - Database migration scripts
+    - `repository/` - Data access layer implementations
 - `pkg/` - Shared packages and utilities
 - `vendor/` - Vendored dependencies
 
@@ -29,13 +29,25 @@ The application uses the following data model:
 
 - **Account**: Represents financial accounts with ID, name, and type
 - **Category**: Represents transaction categories with ID, name, and type
-- **Transaction**: Represents financial transactions with amount, date, description, and relationships to accounts and categories
+- **Transaction**: Represents financial transactions with amount, date, description, and relationships to accounts and
+  categories
 
 ## Prerequisites
 
-- Go 1.16 or higher
+- Go 1.24 or higher (as specified in go.mod)
+- [Mage](https://magefile.org/) build tool
 - Docker and Docker Compose
 - PostgreSQL (or use the provided Docker setup)
+
+### Installing Mage
+
+To install Mage, run:
+
+```
+go install github.com/magefile/mage@vlatest
+```
+
+Make sure the Go bin directory is in your PATH.
 
 ## Getting Started
 
@@ -105,8 +117,28 @@ The PostgreSQL database is configured with the following default settings:
 
 ## License
 
-[Add license information here]
+This project is licensed under the MIT License - see below for details:
 
-## Contributing
+```
+MIT License
 
-[Add contribution guidelines here]
+Copyright (c) 2025 Sample MCP Server
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
