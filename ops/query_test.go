@@ -15,10 +15,20 @@ func TestNewQueryOps(t *testing.T) {
 	var categoryRepo *repository.CategoryRepository
 	var transactionRepo *repository.TransactionRepository
 
-	queryOps := NewQueryOps(accountRepo, categoryRepo, transactionRepo)
+	// Test with legacy constructor
+	queryOps := NewQueryOpsWithRepositories(accountRepo, categoryRepo, transactionRepo)
 
 	// Verify that the QueryOps was created (not nil)
 	if queryOps == nil {
+		t.Error("Expected QueryOps to be created, got nil")
+	}
+
+	// Test with new constructor and WithRepositories option
+	queryOps2, err := NewQueryOps(WithRepositories(accountRepo, categoryRepo, transactionRepo))
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if queryOps2 == nil {
 		t.Error("Expected QueryOps to be created, got nil")
 	}
 }
@@ -63,13 +73,49 @@ func TestQueryOpsDocumentation(t *testing.T) {
 // ExampleQueryOps_GetAccountByID demonstrates how to use the GetAccountByID method
 func ExampleQueryOps_GetAccountByID() {
 	// This is an example of how to use the QueryOps.GetAccountByID method
-	// In a real application, you would initialize the repositories with a database connection
+	// In a real application, you would initialize QueryOps with one of the available options
 
+	// Example 1: Using WithGormDB option
+	// db, err := gorm.Open(dialector, &gorm.Config{})
+	// if err != nil {
+	//     log.Fatalf("Error connecting to database: %v", err)
+	// }
+	//
+	// queryOps, err := NewQueryOps(WithGormDB(db))
+	// if err != nil {
+	//     log.Fatalf("Error creating QueryOps: %v", err)
+	// }
+
+	// Example 2: Using WithDBConfig option
+	// config := &db.ConnectionConfig{
+	//     DbType: db.Postgresql,
+	//     Host: "localhost",
+	//     Port: 5432,
+	//     Username: "user",
+	//     Password: "password",
+	//     DbName: "mydb",
+	//     Timeout: 5 * time.Second,
+	//     MaxIdleConns: 5,
+	//     MaxOpenConns: 10,
+	// }
+	//
+	// queryOps, err := NewQueryOps(WithDBConfig(config))
+	// if err != nil {
+	//     log.Fatalf("Error creating QueryOps: %v", err)
+	// }
+
+	// Example 3: Using WithRepositories option (legacy approach)
 	// var accountRepo *repository.AccountRepository = repository.NewAccountRepository(db)
 	// var categoryRepo *repository.CategoryRepository = repository.NewCategoryRepository(db)
 	// var transactionRepo *repository.TransactionRepository = repository.NewTransactionRepository(db)
 	//
-	// queryOps := NewQueryOps(accountRepo, categoryRepo, transactionRepo)
+	// queryOps, err := NewQueryOps(WithRepositories(accountRepo, categoryRepo, transactionRepo))
+	// if err != nil {
+	//     log.Fatalf("Error creating QueryOps: %v", err)
+	// }
+	//
+	// // Or using the legacy constructor
+	// queryOps := NewQueryOpsWithRepositories(accountRepo, categoryRepo, transactionRepo)
 	//
 	// ctx := context.Background()
 	// account, err := queryOps.GetAccountByID(ctx, 1)

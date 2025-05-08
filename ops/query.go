@@ -5,7 +5,10 @@ import (
 	"sample-mcp/db/entity"
 	"sample-mcp/db/repository"
 	"sample-mcp/db/repository/plain"
+	"sample-mcp/pkg/db"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // QueryOps provides operations for querying data from repositories
@@ -15,17 +18,66 @@ type QueryOps struct {
 	transactionRepo *repository.TransactionRepository
 }
 
-// NewQueryOps creates a new QueryOps instance
-func NewQueryOps(
+// QueryOption defines a function that configures QueryOps
+type QueryOption func(*QueryOps) error
+
+// WithRepositories sets the repositories directly
+func WithRepositories(
+	accountRepo *repository.AccountRepository,
+	categoryRepo *repository.CategoryRepository,
+	transactionRepo *repository.TransactionRepository,
+) QueryOption {
+	return func(q *QueryOps) error {
+		q.accountRepo = accountRepo
+		q.categoryRepo = categoryRepo
+		q.transactionRepo = transactionRepo
+		return nil
+	}
+}
+
+// WithGormDB creates repositories from a gorm.DB instance
+func WithGormDB(db *gorm.DB) QueryOption {
+	return func(q *QueryOps) error {
+		q.accountRepo = repository.NewAccountRepository(db)
+		q.categoryRepo = repository.NewCategoryRepository(db)
+		q.transactionRepo = repository.NewTransactionRepository(db)
+		return nil
+	}
+}
+
+// WithDBConfig creates repositories from a ConnectionConfig
+func WithDBConfig(config *db.ConnectionConfig) QueryOption {
+	return func(q *QueryOps) error {
+		db, err := config.Pool()
+		if err != nil {
+			return err
+		}
+
+		return WithGormDB(db)(q)
+	}
+}
+
+// NewQueryOps creates a new QueryOps instance with the provided options
+func NewQueryOps(options ...QueryOption) (*QueryOps, error) {
+	q := &QueryOps{}
+
+	for _, option := range options {
+		if err := option(q); err != nil {
+			return nil, err
+		}
+	}
+
+	return q, nil
+}
+
+// Legacy constructor for backward compatibility
+func NewQueryOpsWithRepositories(
 	accountRepo *repository.AccountRepository,
 	categoryRepo *repository.CategoryRepository,
 	transactionRepo *repository.TransactionRepository,
 ) *QueryOps {
-	return &QueryOps{
-		accountRepo:     accountRepo,
-		categoryRepo:    categoryRepo,
-		transactionRepo: transactionRepo,
-	}
+	q, _ := NewQueryOps(WithRepositories(accountRepo, categoryRepo, transactionRepo))
+	return q
 }
 
 // GetAccountByID retrieves an account by its ID
