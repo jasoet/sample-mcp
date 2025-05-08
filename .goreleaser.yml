@@ -26,6 +26,6 @@ archives:
   - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     format: zip
     files:
-      - src: app/default_config.yaml
+      - src: config.yml.sample
         dst: config.yaml
       - README.md

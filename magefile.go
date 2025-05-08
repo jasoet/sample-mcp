@@ -39,7 +39,7 @@ func CompileBuild() error {
 	goarch := getEnvOrDefault("GOARCH", runtime.GOARCH)
 
 	// Build for the target platform
-	outputPath := fmt.Sprintf("dist/ama-sync_%s_%s", goos, goarch)
+	outputPath := fmt.Sprintf("mcp-server")
 	if goos == "windows" {
 		outputPath += ".exe"
 	}
@@ -139,8 +139,11 @@ func (d Docker) Restart() error {
 
 func Clean() error {
 	fmt.Println("Cleaning...")
-	if err := os.RemoveAll("dist"); err != nil {
-		return fmt.Errorf("failed to remove dist directory: %w", err)
+	listDeletedFiles := []string{"dist", "mcp-server"}
+	for _, file := range listDeletedFiles {
+		if err := os.RemoveAll(file); err != nil {
+			return fmt.Errorf("failed to remove %s directory: %w", file, err)
+		}
 	}
 	return nil
 }
