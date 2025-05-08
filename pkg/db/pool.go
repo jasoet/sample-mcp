@@ -77,7 +77,6 @@ func (c *ConnectionConfig) Pool() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// Configure connection pool
 	sqlDB.SetMaxIdleConns(c.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(c.MaxOpenConns)
 

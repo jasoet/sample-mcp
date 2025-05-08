@@ -1,4 +1,4 @@
-name: cortex-mcp
+name: sample-mcp
 services:
   
   postgres:
