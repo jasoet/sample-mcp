@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/FreePeak/cortex/pkg/server"
 	"github.com/FreePeak/cortex/pkg/tools"
 	"log"
@@ -57,11 +56,11 @@ func main() {
 		logger.Fatalf("Error adding echo tool: %v", err)
 	}
 
-	_, _ = fmt.Fprintf(os.Stderr, "Server ready. The following tools are available:\n")
-	_, _ = fmt.Fprintf(os.Stderr, "- echo\n")
+	logger.Printf("Server ready. The following tools are available:\n")
+	logger.Printf("- echo\n")
 
 	if err := mcpServer.ServeStdio(); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error serving stdio: %v\n", err)
+		logger.Printf("Error serving stdio: %v\n", err)
 		os.Exit(1)
 	}
 }
