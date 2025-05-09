@@ -22,14 +22,38 @@ The Model Context Protocol (MCP) is an open standard developed by Anthropic to s
 
    MCP Servers can be implemented in various programming languages and communicate with clients through different transports, such as standard input/output (stdio) or HTTP with Server-Sent Events (SSE).
 
+   **Example**: An MCP server might expose a weather tool that accepts a city name and returns current weather conditions, or a database tool that can query customer information.
+
 2. **Tools**  
-   Tools are model-controlled functions that AI models can call to execute specific tasks. They are defined with clear input and output schemas, allowing AI models to understand how to interact with them. For example, a tool might allow an AI model to fetch weather data or create a calendar event.
+   Tools are model-controlled functions that AI models can call to execute specific tasks. They are defined with clear input and output schemas, allowing AI models to understand how to interact with them. Each tool has:
+   - A unique identifier
+   - A description of its purpose
+   - A schema defining required and optional parameters
+   - A handler function that executes the tool's logic
+
+   **Example**: A calendar tool might have parameters for `date`, `time`, and `description`, and return a confirmation when an event is created.
+
+   ```json
+   {
+     "name": "create_calendar_event",
+     "description": "Creates a new calendar event",
+     "parameters": {
+       "date": "string (YYYY-MM-DD)",
+       "time": "string (HH:MM)",
+       "description": "string"
+     }
+   }
+   ```
 
 3. **Resources**  
    Resources are application-controlled data sources that AI models can access to retrieve information. Unlike tools, resources do not perform actions but provide data that can inform the AI model's responses. Examples include accessing a user's contact list or retrieving documents from a database.
 
+   **Example**: A contacts resource might provide access to a user's address book, allowing the AI to reference contact information when composing emails.
+
 4. **Prompts**  
    Prompts are user-controlled templates that help standardize interactions between AI models and external systems. They can be used to format queries, provide context, or guide the AI model's behavior in specific scenarios.
+
+   **Example**: A customer service prompt template might include placeholders for customer information and previous interaction history to help the AI generate appropriate responses.
 
 #### MCP Communication Workflow
 
@@ -110,10 +134,47 @@ cd compose
 docker-compose up -d
 ```
 
+This will start a PostgreSQL instance with the following configuration:
+- Host: localhost
+- Port: 5432
+- Username: postgres
+- Password: postgres
+- Database: postgres
+
+You can verify the database is running with:
+```bash
+docker ps
+# or
+docker-compose ps
+```
+
+#### Configuring LLM API Keys
+
+To use an LLM provider with your MCP server, you'll need to obtain and configure API keys:
+
+1. **For OpenAI API**:
+   - Sign up at [OpenAI Platform](https://platform.openai.com/)
+   - Create an API key in your account dashboard
+   - Store your API key, we will use it later
+
+2. **For Google Gemini API**:
+   - Sign up for Google AI Studio at [Google AI Studio](https://makersuite.google.com/)
+   - Create an API key in your account
+   - Store your API key, we will use it later
+
+3. **For Anthropic Claude API**:
+   - Sign up at [Anthropic Console](https://console.anthropic.com/)
+   - Create an API key in your account settings
+   - Store your API key, we will use it later
+
+You can add these environment variables to your shell profile (`.bashrc`, `.zshrc`, etc.) for persistence.
+
 #### Download and Install Dive AI Chat Client
 
 Download and install the Dive AI Chat client, which supports MCP:
 - [Dive Releases](https://github.com/OpenAgentPlatform/Dive/releases)
+
+After installation, configure Dive to use your LLM API key in the settings panel.
 
 ### Step 3: Technical Deep Dive into MCP Server
 
@@ -147,7 +208,7 @@ The MCP protocol follows a specific communication pattern:
    │            │  tools execution suggestion          │            │
    │            │ <─────────────────────────────────── │            │
    └────────────┘                                      └────────────┘
-     
+
    ┌────────────┐                                      ┌────────────┐
    │            │  JSON data (tool execution)          │            │
    │ MCP Client │ ───────────────────────────────────> | MCP Server │
@@ -163,36 +224,31 @@ The MCP protocol follows a specific communication pattern:
    │            │ <─────────────────────────────────── │            │
    └────────────┘                                      └────────────┘
    ```
+#### Example MCP Request/Response JSON
 
-#### Technical Implementation Details
+1. **Tool Discovery Request**:
+```json
+{"jsonrpc":"2.0","id":1,"method":"tools/list"}
+```
 
-1. **Server Initialization**:
-   - Creating a server instance with configuration options
-   - Setting up HTTP handlers for tool discovery and execution
-   - Configuring authentication and security measures
+2. **Tool Discovery Response**:
+```json
+{"id":1,"jsonrpc":"2.0","result":{"tools":[{"description":"Echoes back the input message","inputSchema":{"properties":{"message":{"description":"The message to echo back","type":"string"}},"required":["message"],"type":"object"},"name":"echo"}]}}
+```
 
-2. **Tool Registration**:
-   - Defining tool schemas with JSON Schema
-   - Registering tool handlers with the server
-   - Implementing parameter validation
+3. **Tool Execution Request**:
+```json
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","parameters":{"message":"Hello, MCP Server!"}}}
+```
 
-3. **Request Processing**:
-   - Parsing incoming JSON requests
-   - Validating request parameters against tool schemas
-   - Routing requests to appropriate tool handlers
-
-4. **Response Handling**:
-   - Formatting tool execution results as JSON
-   - Handling errors and exceptions
-   - Implementing proper HTTP status codes
-
-5. **Server Configuration Options**:
-   - Port and host settings
-   - CORS configuration
-   - Rate limiting and throttling
-   - Logging and monitoring
+4. **Tool Execution Response**:
+```json
+{"id":1,"jsonrpc":"2.0","result":{"content":[{"text":"[1746772565] Hello, MCP Server!","type":"text"}]}}
+```
 
 #### Starting the MCP Server
+
+Using cortex library (github.com/FreePeak/cortex/) to setup MCP server.
 
 ```go
 package main
