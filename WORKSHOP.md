@@ -54,13 +54,11 @@ By understanding these core components and workflows, participants in the Model 
 
 A short presentation about MCP is available here: [MCP Presentation Slides](https://docs.google.com/presentation/d/1Fuq5TYie_VHCAiuKFy3OaGzoVRzxCXa1riX8dWoZwEY/edit?usp=sharing)
 
-## Step 2: Setting Up Your Environment
+### Step 2: Setting Up Your Environment
 
 In this step, you'll prepare your development environment to build and run an MCP server using Go. We'll also configure supporting services such as PostgreSQL and an LLM provider.
 
----
-
-### 🧰 Prerequisites
+#### Prerequisites
 
 Before proceeding, make sure you have the following:
 
@@ -71,41 +69,160 @@ Before proceeding, make sure you have the following:
 - An LLM API key (such as Gemini or OpenAI-compatible endpoint)
 - Dive (AI chat client that supports MCP): [https://github.com/OpenAgentPlatform/Dive](https://github.com/OpenAgentPlatform/Dive)
 
----
-
-### 🛠️ Installing Required Dependencies
+#### Installing Required Dependencies
 
 Install Go:
 
-- macOS: `brew install go`
-- Ubuntu: `sudo apt install golang-go`
-- Windows: Download from [https://go.dev/dl/](https://go.dev/dl/)
+```bash
+# macOS
+brew install go
+
+# Ubuntu
+sudo apt install golang-go
+
+# Windows
+# Download from https://go.dev/dl/
+```
 
 Install Docker:
 
-- macOS: [https://docs.docker.com/desktop/mac/install/](https://docs.docker.com/desktop/mac/install/)
-- Ubuntu: `sudo apt install docker.io docker-compose`
-- Windows: [https://docs.docker.com/desktop/windows/install/](https://docs.docker.com/desktop/windows/install/)
+```bash
+# macOS
+# Download from https://docs.docker.com/desktop/mac/install/
+
+# Ubuntu
+sudo apt install docker.io docker-compose
+
+# Windows
+# Download from https://docs.docker.com/desktop/windows/install/
+```
 
 Install VS Code (optional but recommended):
-
 - [https://code.visualstudio.com/Download](https://code.visualstudio.com/Download)
 
----
+#### Setting Up PostgreSQL with Docker
 
-### 🐘 Setting Up PostgreSQL with Docker
-docker-compose file is available on `compose` directory
+The docker-compose file is available in the `compose` directory:
 
+```bash
+# Start PostgreSQL using Docker Compose
+cd compose
+docker-compose up -d
+```
 
-##### Download and install Dive AI Chat client
-https://github.com/OpenAgentPlatform/Dive/releases
+#### Download and Install Dive AI Chat Client
 
+Download and install the Dive AI Chat client, which supports MCP:
+- [Dive Releases](https://github.com/OpenAgentPlatform/Dive/releases)
 
-### Step 3: Creating Your First MCP Server
+### Step 3: Technical Deep Dive into MCP Server
 
-- Initializing an MCP server
-- Understanding server configuration options
-- Starting the server
+In this step, we'll explore the technical aspects of the Model Context Protocol Server and understand how it communicates with clients and LLMs.
+
+#### MCP Server Architecture
+
+The MCP Server is the core component that handles communication between AI clients and tools. It processes JSON-based requests and responses, manages tool registration, and executes tool handlers when invoked.
+
+#### Communication Flow
+
+The MCP protocol follows a specific communication pattern:
+
+1. **Tool Discovery Phase**:
+   ```
+   ┌────────────┐                                      ┌────────────┐
+   │            │  JSON Data (tool list request)       │            │
+   │ MCP Client │ ───────────────────────────────────> | MCP Server │
+   │            │                                      │            │
+   │            │  JSON Data (tool list)               │            │
+   │            │ <─────────────────────────────────── │            │
+   └────────────┘                                      └────────────┘
+   ```
+
+2. **Tool Execution Phase**:
+   ```
+   ┌────────────┐                                      ┌────────────┐
+   │            │  Send Prompt + List of Tools         │            │
+   │ MCP Client │ ───────────────────────────────────> |   LLM      │
+   │            │                                      │            │
+   │            │  tools execution suggestion          │            │
+   │            │ <─────────────────────────────────── │            │
+   └────────────┘                                      └────────────┘
+     
+   ┌────────────┐                                      ┌────────────┐
+   │            │  JSON data (tool execution)          │            │
+   │ MCP Client │ ───────────────────────────────────> | MCP Server │
+   │            │                                      │            │
+   │            │  JSON Data (execution result)        │            │
+   │            │ <─────────────────────────────────── │            │
+   └────────────┘                                      └────────────┘
+   ┌────────────┐                                      ┌────────────┐
+   │            │  execution result                    │            │
+   │ MCP Client │ ───────────────────────────────────> |   LLM      │
+   │            │                                      │            │
+   │            │  prompt result                       │            │
+   │            │ <─────────────────────────────────── │            │
+   └────────────┘                                      └────────────┘
+   ```
+
+#### Technical Implementation Details
+
+1. **Server Initialization**:
+   - Creating a server instance with configuration options
+   - Setting up HTTP handlers for tool discovery and execution
+   - Configuring authentication and security measures
+
+2. **Tool Registration**:
+   - Defining tool schemas with JSON Schema
+   - Registering tool handlers with the server
+   - Implementing parameter validation
+
+3. **Request Processing**:
+   - Parsing incoming JSON requests
+   - Validating request parameters against tool schemas
+   - Routing requests to appropriate tool handlers
+
+4. **Response Handling**:
+   - Formatting tool execution results as JSON
+   - Handling errors and exceptions
+   - Implementing proper HTTP status codes
+
+5. **Server Configuration Options**:
+   - Port and host settings
+   - CORS configuration
+   - Rate limiting and throttling
+   - Logging and monitoring
+
+#### Starting the MCP Server
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "os"
+    "github.com/FreePeak/cortex/pkg/server"
+    "github.com/FreePeak/cortex/pkg/tools"
+)
+
+func main() {
+    // Create a logger
+    logger := log.New(os.Stderr, "[cortex-stdio] ", log.LstdFlags)
+
+    // Create a new MCP server
+    mcpServer := server.NewMCPServer("My MCP Server", "1.0.0", logger)
+
+    // Register tools (will be covered in Step 4)
+
+    // Start the server using stdio transport
+    if err := mcpServer.ServeStdio(); err != nil {
+        logger.Printf("Error serving stdio: %v\n", err)
+        os.Exit(1)
+    }
+}
+```
+
+This technical foundation will help you understand how the MCP server processes requests and communicates with clients and LLMs, preparing you for implementing your own tools in the next steps.
 
 ### Step 4: Implementing Your First Tool - Echo
 
