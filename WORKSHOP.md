@@ -595,17 +595,314 @@ If you encounter issues when testing your MCP server, here are some common probl
 
 Now that you've successfully built and tested your echo tool, you're ready to move on to more complex tools that interact with databases and other services. In the next step, we'll set up database integration to create tools that can store and retrieve data.
 
-### Step 6: Database Integration
+### Step 6: Test MCP Server using Dive 
 
-- Setting up database connections
-- Creating repositories for data access
-- Implementing database operations
+In this step, we'll test our MCP server using the Dive chat client. Dive is an AI chat client that supports the Model Context Protocol, allowing us to interact with our MCP server through a user-friendly interface.
 
-### Step 7: Creating a Database-Backed Tool
+#### Building the MCP Server
 
-- Designing a tool that interacts with the database
-- Implementing the handler with database operations
-- Error handling and response formatting
+Before we can use our MCP server with Dive, we need to build it:
+
+```bash
+# For Unix/Linux/macOS
+go build -o mcp-server ./main.go
+
+# For Windows
+go build -o mcp-server.exe ./main.go
+
+# Or using Mage (if installed)
+mage compileBuild
+```
+
+Make sure the executable has the proper permissions:
+
+```bash
+chmod +x ./mcp-server
+```
+
+#### Registering the MCP Server in Dive
+
+1. Open the Dive chat client that you installed in Step 2.
+
+2. Go to Tools Management(MCP).
+
+3. Click on "Add" and use the following configuration:
+
+```json
+{
+  "mcpServers": {
+    "echoAccount": {
+      "transport": "stdio",
+      "enabled": true,
+      "command": "<binary location>",
+      "args": [],
+      "env": {},
+      "url": null
+    }
+  }
+}
+```
+
+Replace `<binary location>` with the full path to your `mcp-server` executable. For example:
+- On macOS/Linux: `/Users/username/path/to/sample-mcp/mcp-server`
+- On Windows: `C:\Users\username\path\to\sample-mcp\mcp-server.exe`
+
+4. Click "Save" to register the MCP server.
+
+#### Validating the Configuration
+
+To validate that the MCP server is correctly registered and working:
+
+1. In the Dive chat interface, start a new conversation.
+
+2. Type a message like "I want to use the echo tool."
+
+3. Dive should detect that you want to use a tool and suggest the echo tool from your MCP server.
+
+4. When prompted, provide a message to echo, such as "Hello, MCP Server!"
+
+5. The MCP server should process your request and return the message, which will be displayed in the chat.
+
+If everything is working correctly, you should see a response similar to:
+
+```
+Hello, MCP Server!
+```
+
+#### Troubleshooting
+
+If you encounter issues:
+
+1. **MCP Server not found**: Make sure the path to the binary is correct and the file exists.
+
+2. **Permission denied**: Ensure the binary has execution permissions.
+
+3. **Tool not showing up**: Check that the MCP server is enabled in Dive settings.
+
+4. **Error in tool execution**: Look at the Dive logs for error messages. You might also see error messages in the terminal if you're running the MCP server manually.
+
+5. **Connection issues**: Make sure the transport type is set to "stdio" and that the command path is correct.
+
+By successfully testing your MCP server with Dive, you've verified that your implementation works with a real AI chat client. This is an important step before moving on to more complex tools and integrations.
+
+
+### Step 7: Database Integration
+
+In this step, we'll implement a database integration tool that allows users to query the database for accounts, categories, and transactions. We'll use the existing `QueryOps` code to connect to the database and retrieve data.
+
+#### 1. Understanding the Database Structure
+
+Our application uses three main entities:
+
+1. **Account** - Represents a financial account
+   - Fields: AccountID, Name, AccountType, CreatedAt, UpdatedAt
+
+2. **Category** - Represents a transaction category
+   - Fields: CategoryID, Name, CategoryType, CreatedAt, UpdatedAt
+
+3. **Transaction** - Represents a financial transaction
+   - Fields: TransactionID, AccountID, CategoryID, Amount, TransactionDate, Description, CreatedAt, UpdatedAt
+
+The `QueryOps` class provides methods to query these entities from the database.
+
+#### 2. Implementing the DatabaseHandler
+
+Now, let's implement a `DatabaseHandler` similar to the `EchoHandler` but using the existing `QueryOps` code to connect to the database. Create a new file called `handler/database.go` with the following content:
+
+```go
+package handler
+
+import (
+	"context"
+	"fmt"
+	"github.com/FreePeak/cortex/pkg/server"
+	"log"
+	"sample-mcp/ops"
+	"strconv"
+)
+
+// HandleDatabase handles database query requests
+func HandleDatabase(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
+	log.Printf("Handling database tool call with name: %s", request.Name)
+
+	// Get the query type parameter
+	queryType, ok := request.Parameters["query_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'query_type' parameter")
+	}
+
+	// Create a new QueryOps instance
+	// In a real application, you would inject this dependency
+	queryOps, err := ops.NewQueryOps(ops.WithGormDB(nil)) // Replace nil with actual DB connection
+	if err != nil {
+		return nil, fmt.Errorf("failed to create query ops: %v", err)
+	}
+
+	var result interface{}
+
+	// Handle different query types
+	switch queryType {
+	case "get_all_accounts":
+		accounts, err := queryOps.GetAllAccounts(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get accounts: %v", err)
+		}
+		result = accounts
+
+	case "get_account_by_id":
+		// Extract account ID parameter
+		accountIDStr, ok := request.Parameters["account_id"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing or invalid 'account_id' parameter")
+		}
+
+		accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid account ID format: %v", err)
+		}
+
+		account, err := queryOps.GetAccountByID(ctx, uint(accountID))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get account: %v", err)
+		}
+		result = account
+
+	case "get_all_categories":
+		categories, err := queryOps.GetAllCategories(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get categories: %v", err)
+		}
+		result = categories
+
+	case "get_transactions_by_account":
+		// Extract account ID parameter
+		accountIDStr, ok := request.Parameters["account_id"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing or invalid 'account_id' parameter")
+		}
+
+		accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid account ID format: %v", err)
+		}
+
+		transactions, err := queryOps.GetTransactionsByAccountID(ctx, uint(accountID))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get transactions: %v", err)
+		}
+		result = transactions
+
+	default:
+		return nil, fmt.Errorf("unsupported query type: %s", queryType)
+	}
+
+	// Return the response in the format expected by the MCP server
+	return map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": fmt.Sprintf("Query result: %v", result),
+			},
+		},
+	}, nil
+}
+```
+
+#### 3. Registering the Database Tool with the MCP Server
+
+Next, we need to register our database tool with the MCP server in the main.go file:
+
+```go
+// Create the database tool
+databaseTool := tools.NewTool("database",
+	tools.WithDescription("Queries the database for financial data"),
+	tools.WithString("query_type",
+		tools.Description("The type of query to execute (get_all_accounts, get_account_by_id, get_all_categories, get_transactions_by_account)"),
+		tools.Required(),
+	),
+	tools.WithString("account_id",
+		tools.Description("The account ID for account-specific queries"),
+		tools.Optional(),
+	),
+)
+
+// Register the database tool with the MCP server
+err = mcpServer.AddTool(ctx, databaseTool, handler.HandleDatabase)
+if err != nil {
+	logger.Fatalf("Error adding database tool: %v", err)
+}
+
+logger.Printf("- database\n")
+```
+
+#### 4. Using the Database Tool
+
+Once implemented, you can use the database tool to query financial data from the database. Here are some example queries:
+
+1. **Get All Accounts**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "database",
+    "parameters": {
+      "query_type": "get_all_accounts"
+    }
+  }
+}
+```
+
+2. **Get Account by ID**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "database",
+    "parameters": {
+      "query_type": "get_account_by_id",
+      "account_id": "1"
+    }
+  }
+}
+```
+
+3. **Get All Categories**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "database",
+    "parameters": {
+      "query_type": "get_all_categories"
+    }
+  }
+}
+```
+
+4. **Get Transactions by Account**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "database",
+    "parameters": {
+      "query_type": "get_transactions_by_account",
+      "account_id": "1"
+    }
+  }
+}
+```
+
+This implementation demonstrates how to create a database integration tool that uses the existing `QueryOps` code to connect to the database and retrieve data. In a real application, you would need to properly initialize the database connection and handle errors more robustly.
+
 
 ## Resources
 
