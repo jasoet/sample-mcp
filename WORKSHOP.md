@@ -228,22 +228,68 @@ The MCP protocol follows a specific communication pattern:
 
 1. **Tool Discovery Request**:
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/list"}
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list"
+}
 ```
 
 2. **Tool Discovery Response**:
 ```json
-{"id":1,"jsonrpc":"2.0","result":{"tools":[{"description":"Echoes back the input message","inputSchema":{"properties":{"message":{"description":"The message to echo back","type":"string"}},"required":["message"],"type":"object"},"name":"echo"}]}}
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "tools": [
+      {
+        "description": "Echoes back the input message",
+        "inputSchema": {
+          "properties": {
+            "message": {
+              "description": "The message to echo back",
+              "type": "string"
+            }
+          },
+          "required": ["message"],
+          "type": "object"
+        },
+        "name": "echo"
+      }
+    ]
+  }
+}
 ```
 
 3. **Tool Execution Request**:
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","parameters":{"message":"Hello, MCP Server!"}}}
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "echo",
+    "parameters": {
+      "message": "Hello, MCP Server!"
+    }
+  }
+}
 ```
 
 4. **Tool Execution Response**:
 ```json
-{"id":1,"jsonrpc":"2.0","result":{"content":[{"text":"[1746772565] Hello, MCP Server!","type":"text"}]}}
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "content": [
+      {
+        "text": "[1746772565] Hello, MCP Server!",
+        "type": "text"
+      }
+    ]
+  }
+}
 ```
 
 #### Starting the MCP Server
@@ -282,10 +328,147 @@ This technical foundation will help you understand how the MCP server processes 
 
 ### Step 4: Implementing Your First Tool - Echo
 
-- Creating a simple echo tool
-- Defining tool parameters
-- Implementing the handler function
-- Registering the tool with the MCP server
+In this step, we'll implement a simple "echo" tool that takes a message as input and returns it with a timestamp. This will demonstrate the basic structure of an MCP tool and how to integrate it with the MCP server.
+
+#### 1. Creating a Simple Echo Tool
+
+First, let's define our echo tool in the main.go file. We'll use the `tools` package from the cortex library to create a new tool with a name and description:
+
+```go
+echoTool := tools.NewTool("echo",
+    tools.WithDescription("Echoes back the input message"),
+    tools.WithString("message",
+        tools.Description("The message to echo back"),
+        tools.Required(),
+    ),
+)
+```
+
+This code creates a new tool named "echo" with a description and a single parameter:
+- The tool name is "echo"
+- The description explains what the tool does: "Echoes back the input message"
+- It has one parameter called "message" which is a string and is required
+
+#### 2. Implementing the Handler Function
+
+Next, we need to implement the handler function that will process the tool call. Create a new file called `handler/echo.go` with the following content:
+
+```go
+package handler
+
+import (
+    "context"
+    "fmt"
+    "github.com/FreePeak/cortex/pkg/server"
+    "log"
+    "time"
+)
+
+func HandleEcho(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
+    log.Printf("Handling echo tool call with name: %s", request.Name)
+
+    // Extract and validate the message parameter
+    message, ok := request.Parameters["message"].(string)
+    if !ok {
+        return nil, fmt.Errorf("missing or invalid 'message' parameter")
+    }
+
+    // Add a timestamp to the message
+    timestamp := fmt.Sprintf("%d", time.Now().Unix())
+    responseMessage := fmt.Sprintf("[%s] %s", timestamp, message)
+
+    // Return the response in the format expected by the MCP server
+    return map[string]interface{}{
+        "content": []map[string]interface{}{
+            {
+                "type": "text",
+                "text": responseMessage,
+            },
+        },
+    }, nil
+}
+```
+
+This handler function:
+1. Extracts the "message" parameter from the request
+2. Validates that the parameter exists and is a string
+3. Adds a Unix timestamp to the message
+4. Returns the response in the format expected by the MCP server
+
+#### 3. Registering the Tool with the MCP Server
+
+Finally, we need to register our tool with the MCP server in the main.go file:
+
+```go
+ctx := context.Background()
+err = mcpServer.AddTool(ctx, echoTool, handler.HandleEcho)
+if err != nil {
+    logger.Fatalf("Error adding echo tool: %v", err)
+}
+
+logger.Printf("Server ready. The following tools are available:\n")
+logger.Printf("- echo\n")
+```
+
+This code:
+1. Creates a background context
+2. Adds the echo tool to the MCP server, associating it with the HandleEcho handler function
+3. Logs an error if the tool couldn't be added
+4. Logs a message indicating that the server is ready and which tools are available
+
+#### 4. Complete Implementation
+
+Here's the complete implementation of the main.go file with the echo tool:
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/FreePeak/cortex/pkg/server"
+    "github.com/FreePeak/cortex/pkg/tools"
+    "log"
+    "os"
+    "sample-mcp/handler"
+)
+
+func main() {
+    // Create a logger
+    logger := log.New(os.Stderr, "[cortex-stdio] ", log.LstdFlags)
+
+    // Create a new MCP server
+    mcpServer := server.NewMCPServer("Cortex Stdio Server", "1.0.0", logger)
+
+    // Create the echo tool
+    echoTool := tools.NewTool("echo",
+        tools.WithDescription("Echoes back the input message"),
+        tools.WithString("message",
+            tools.Description("The message to echo back"),
+            tools.Required(),
+        ),
+    )
+
+    var err error
+
+    // Register the echo tool with the MCP server
+    ctx := context.Background()
+    err = mcpServer.AddTool(ctx, echoTool, handler.HandleEcho)
+    if err != nil {
+        logger.Fatalf("Error adding echo tool: %v", err)
+    }
+
+    logger.Printf("Server ready. The following tools are available:\n")
+    logger.Printf("- echo\n")
+
+    // Start the server using stdio transport
+    if err := mcpServer.ServeStdio(); err != nil {
+        logger.Printf("Error serving stdio: %v\n", err)
+        os.Exit(1)
+    }
+}
+```
+
+With this implementation, your MCP server now has a functional echo tool that can receive messages and echo them back with a timestamp. In the next step, we'll test this tool to ensure it works as expected.
 
 ### Step 5: Testing Your Echo Tool
 
