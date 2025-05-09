@@ -607,39 +607,11 @@ Now that you've successfully built and tested your echo tool, you're ready to mo
 - Implementing the handler with database operations
 - Error handling and response formatting
 
-### Step 8: Advanced MCP Features
-
-- Tool dependencies
-- Context propagation
-- Authentication and authorization
-- Rate limiting and throttling
-
-### Step 9: Best Practices
-
-- Structuring your MCP application
-- Error handling strategies
-- Testing MCP tools
-- Documentation
-
-### Step 10: Building a Complete Application
-
-- Putting it all together
-- Creating a multi-tool MCP server
-- Deploying your MCP application
-
-## Hands-on Exercises
-
-Throughout this workshop, you'll complete the following exercises:
-
-1. Create a basic MCP server with an echo tool
-2. Implement a tool that retrieves data from a database
-3. Create a tool that performs CRUD operations
-4. Build a complex tool that aggregates data from multiple sources
-5. Deploy your MCP server as a standalone application
-
 ## Resources
 
-- [MCP Documentation](https://github.com/FreePeak/cortex)
+- [Model Context Protocol Documentation](https://modelcontextprotocol.io/introduction)
+- [Magefile - Build Tool](https://magefile.org/)
+- [Cortex MCP Documentation](https://github.com/FreePeak/cortex)
 - [Go Documentation](https://golang.org/doc/)
 - [GORM Documentation](https://gorm.io/docs/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
@@ -647,7 +619,6 @@ Throughout this workshop, you'll complete the following exercises:
 ## Next Steps
 
 After completing this workshop, you can:
-- Contribute to the MCP project
 - Build more complex tools
 - Integrate MCP with other services and protocols
 - Share your tools with the community
