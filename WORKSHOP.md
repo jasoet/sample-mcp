@@ -472,9 +472,128 @@ With this implementation, your MCP server now has a functional echo tool that ca
 
 ### Step 5: Testing Your Echo Tool
 
-- Making requests to your echo tool
-- Understanding the response format
-- Debugging common issues
+In this step, we'll build the MCP server application and test the echo tool we created in Step 4. We'll use command-line tools to send JSON-RPC requests to the server and examine the responses.
+
+#### Building the Application
+
+First, you need to build the application. You have two options:
+
+1. Using standard Go build:
+
+```bash
+# For Unix/Linux/macOS
+go build -o mcp-server ./main.go
+
+# For Windows
+go build -o mcp-server.exe ./main.go
+```
+
+2. Using Mage build tools (if you have Mage installed):
+
+```bash
+mage compileBuild
+```
+
+This will create an executable file named `mcp-server` (or `mcp-server.exe` on Windows) in your project directory.
+
+#### Testing the Echo Tool
+
+Once you've built the application, you can test it by sending JSON-RPC requests through standard input. We'll use the `echo` command to pipe JSON requests to our server.
+
+##### 1. Listing Available Tools
+
+To list all available tools, send a tools/list request:
+
+```bash
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | ./mcp-server
+```
+
+You should receive a response similar to:
+
+```json
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "tools": [
+      {
+        "description": "Echoes back the input message",
+        "inputSchema": {
+          "properties": {
+            "message": {
+              "description": "The message to echo back",
+              "type": "string"
+            }
+          },
+          "required": ["message"],
+          "type": "object"
+        },
+        "name": "echo"
+      }
+    ]
+  }
+}
+```
+
+This response shows that our server has one tool available: the `echo` tool we created in Step 4.
+
+##### 2. Executing the Echo Tool
+
+To execute the echo tool, send a tools/call request with the tool name and parameters:
+
+```bash
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "parameters": {"message": "Hello, MCP Server!"}}}' | ./mcp-server
+```
+
+You should receive a response similar to:
+
+```json
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "content": [
+      {
+        "text": "[1746772565] Hello, MCP Server!",
+        "type": "text"
+      }
+    ]
+  }
+}
+```
+
+The response includes our message with a timestamp prefix, exactly as we implemented in the `HandleEcho` function.
+
+#### Understanding the Response Format
+
+The response from the MCP server follows the JSON-RPC 2.0 specification:
+
+1. **id**: Matches the id from the request, allowing you to correlate requests and responses.
+2. **jsonrpc**: Always "2.0", indicating the JSON-RPC protocol version.
+3. **result**: Contains the actual response data from the tool.
+   - For the `tools/list` method, it contains a list of available tools with their descriptions and input schemas.
+   - For the `tools/call` method, it contains the output from the tool, which in our case is a content array with a text element.
+
+#### Debugging Common Issues
+
+If you encounter issues when testing your MCP server, here are some common problems and solutions:
+
+1. **Server not starting**: Make sure you've built the application correctly and the executable file exists.
+
+2. **Permission denied**: If you're on Unix/Linux/macOS, you might need to make the executable file executable:
+   ```bash
+   chmod +x ./mcp-server
+   ```
+
+3. **Invalid JSON**: Make sure your JSON requests are properly formatted. A common issue is missing quotes around property names or string values.
+
+4. **Missing parameters**: If you get an error about missing or invalid parameters, check that you're providing all required parameters with the correct types.
+
+5. **Server crashes**: Check the error messages in the console. The server logs errors to stderr, which should help you identify the issue.
+
+#### Next Steps
+
+Now that you've successfully built and tested your echo tool, you're ready to move on to more complex tools that interact with databases and other services. In the next step, we'll set up database integration to create tools that can store and retrieve data.
 
 ### Step 6: Database Integration
 
