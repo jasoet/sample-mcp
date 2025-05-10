@@ -590,69 +590,6 @@ Example of an error response:
   }
 }
 ```
-
-Standard JSON-RPC 2.0 error codes:
-- **-32700**: Parse error - Invalid JSON was received
-- **-32600**: Invalid Request - The JSON sent is not a valid Request object
-- **-32601**: Method not found - The method does not exist / is not available
-- **-32602**: Invalid params - Invalid method parameter(s)
-- **-32603**: Internal error - Internal JSON-RPC error
-- **-32000 to -32099**: Server error - Reserved for implementation-defined server errors
-
-#### Batch Requests
-
-JSON-RPC 2.0 also supports batch requests, allowing multiple requests to be sent in a single HTTP request. This can improve performance by reducing network overhead. Here's an example of a batch request:
-
-```json
-[
-  {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
-  {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "echo", "parameters": {"message": "Hello"}}}
-]
-```
-
-The server would respond with an array of responses:
-
-```json
-[
-  {
-    "id": 1,
-    "jsonrpc": "2.0",
-    "result": {
-      "tools": [
-        {
-          "description": "Echoes back the input message",
-          "inputSchema": {
-            "properties": {
-              "message": {
-                "description": "The message to echo back",
-                "type": "string"
-              }
-            },
-            "required": ["message"],
-            "type": "object"
-          },
-          "name": "echo"
-        }
-      ]
-    }
-  },
-  {
-    "id": 2,
-    "jsonrpc": "2.0",
-    "result": {
-      "content": [
-        {
-          "text": "[1746772565] Hello",
-          "type": "text"
-        }
-      ]
-    }
-  }
-]
-```
-
-Note: The MCP server implementation in this workshop may not support batch requests, but it's a standard feature of JSON-RPC 2.0 that you might want to implement in a production environment.
-
 #### Debugging Common Issues
 
 If you encounter issues when testing your MCP server, here are some common problems and solutions:
