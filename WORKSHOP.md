@@ -191,10 +191,10 @@ The MCP protocol follows a specific communication pattern:
 1. **Tool Discovery Phase**:
    ```
    ┌────────────┐                                      ┌────────────┐
-   │            │  JSON Data (tool list request)       │            │
+   │            │  JSON-RPC (tool list request)        │            │
    │ MCP Client │ ───────────────────────────────────> | MCP Server │
    │            │                                      │            │
-   │            │  JSON Data (tool list)               │            │
+   │            │  JSON-RPC (tool list)                │            │
    │            │ <─────────────────────────────────── │            │
    └────────────┘                                      └────────────┘
    ```
@@ -210,10 +210,10 @@ The MCP protocol follows a specific communication pattern:
    └────────────┘                                      └────────────┘
 
    ┌────────────┐                                      ┌────────────┐
-   │            │  JSON data (tool execution)          │            │
+   │            │  JSON-RPC  (tool execution)          │            │
    │ MCP Client │ ───────────────────────────────────> | MCP Server │
    │            │                                      │            │
-   │            │  JSON Data (execution result)        │            │
+   │            │  JSON-RPC  (execution result)        │            │
    │            │ <─────────────────────────────────── │            │
    └────────────┘                                      └────────────┘
    ┌────────────┐                                      ┌────────────┐
@@ -570,9 +570,88 @@ The response from the MCP server follows the JSON-RPC 2.0 specification:
 
 1. **id**: Matches the id from the request, allowing you to correlate requests and responses.
 2. **jsonrpc**: Always "2.0", indicating the JSON-RPC protocol version.
-3. **result**: Contains the actual response data from the tool.
+3. **result**: Contains the actual response data from the tool for successful responses.
    - For the `tools/list` method, it contains a list of available tools with their descriptions and input schemas.
    - For the `tools/call` method, it contains the output from the tool, which in our case is a content array with a text element.
+4. **error**: Present only in error responses, contains information about the error.
+   - Contains **code** (a number that indicates the error type)
+   - Contains **message** (a short description of the error)
+   - May contain **data** (additional information about the error)
+
+Example of an error response:
+```json
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": "The 'message' parameter is required"
+  }
+}
+```
+
+Standard JSON-RPC 2.0 error codes:
+- **-32700**: Parse error - Invalid JSON was received
+- **-32600**: Invalid Request - The JSON sent is not a valid Request object
+- **-32601**: Method not found - The method does not exist / is not available
+- **-32602**: Invalid params - Invalid method parameter(s)
+- **-32603**: Internal error - Internal JSON-RPC error
+- **-32000 to -32099**: Server error - Reserved for implementation-defined server errors
+
+#### Batch Requests
+
+JSON-RPC 2.0 also supports batch requests, allowing multiple requests to be sent in a single HTTP request. This can improve performance by reducing network overhead. Here's an example of a batch request:
+
+```json
+[
+  {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+  {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "echo", "parameters": {"message": "Hello"}}}
+]
+```
+
+The server would respond with an array of responses:
+
+```json
+[
+  {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "tools": [
+        {
+          "description": "Echoes back the input message",
+          "inputSchema": {
+            "properties": {
+              "message": {
+                "description": "The message to echo back",
+                "type": "string"
+              }
+            },
+            "required": ["message"],
+            "type": "object"
+          },
+          "name": "echo"
+        }
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "jsonrpc": "2.0",
+    "result": {
+      "content": [
+        {
+          "text": "[1746772565] Hello",
+          "type": "text"
+        }
+      ]
+    }
+  }
+]
+```
+
+Note: The MCP server implementation in this workshop may not support batch requests, but it's a standard feature of JSON-RPC 2.0 that you might want to implement in a production environment.
 
 #### Debugging Common Issues
 
@@ -721,14 +800,46 @@ import (
 	"strconv"
 )
 
-// HandleDatabase handles database query requests
-func HandleDatabase(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
-	log.Printf("Handling database tool call with name: %s", request.Name)
+// HandleGetAllAccounts handles requests to get all accounts
+func HandleGetAllAccounts(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
+	log.Printf("Handling get all accounts tool call with name: %s", request.Name)
 
-	// Get the query type parameter
-	queryType, ok := request.Parameters["query_type"].(string)
+	// Create a new QueryOps instance
+	// In a real application, you would inject this dependency
+	queryOps, err := ops.NewQueryOps(ops.WithGormDB(nil)) // Replace nil with actual DB connection
+	if err != nil {
+		return nil, fmt.Errorf("failed to create query ops: %v", err)
+	}
+
+	accounts, err := queryOps.GetAllAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get accounts: %v", err)
+	}
+
+	// Return the response in the format expected by the MCP server
+	return map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": fmt.Sprintf("Query result: %v", accounts),
+			},
+		},
+	}, nil
+}
+
+// HandleGetAccountById handles requests to get an account by ID
+func HandleGetAccountById(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
+	log.Printf("Handling get account by ID tool call with name: %s", request.Name)
+
+	// Extract account ID parameter
+	accountIDStr, ok := request.Parameters["account_id"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing or invalid 'query_type' parameter")
+		return nil, fmt.Errorf("missing or invalid 'account_id' parameter")
+	}
+
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %v", err)
 	}
 
 	// Create a new QueryOps instance
@@ -738,62 +849,9 @@ func HandleDatabase(ctx context.Context, request server.ToolCallRequest) (interf
 		return nil, fmt.Errorf("failed to create query ops: %v", err)
 	}
 
-	var result interface{}
-
-	// Handle different query types
-	switch queryType {
-	case "get_all_accounts":
-		accounts, err := queryOps.GetAllAccounts(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get accounts: %v", err)
-		}
-		result = accounts
-
-	case "get_account_by_id":
-		// Extract account ID parameter
-		accountIDStr, ok := request.Parameters["account_id"].(string)
-		if !ok {
-			return nil, fmt.Errorf("missing or invalid 'account_id' parameter")
-		}
-
-		accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid account ID format: %v", err)
-		}
-
-		account, err := queryOps.GetAccountByID(ctx, uint(accountID))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get account: %v", err)
-		}
-		result = account
-
-	case "get_all_categories":
-		categories, err := queryOps.GetAllCategories(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get categories: %v", err)
-		}
-		result = categories
-
-	case "get_transactions_by_account":
-		// Extract account ID parameter
-		accountIDStr, ok := request.Parameters["account_id"].(string)
-		if !ok {
-			return nil, fmt.Errorf("missing or invalid 'account_id' parameter")
-		}
-
-		accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid account ID format: %v", err)
-		}
-
-		transactions, err := queryOps.GetTransactionsByAccountID(ctx, uint(accountID))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get transactions: %v", err)
-		}
-		result = transactions
-
-	default:
-		return nil, fmt.Errorf("unsupported query type: %s", queryType)
+	account, err := queryOps.GetAccountByID(ctx, uint(accountID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %v", err)
 	}
 
 	// Return the response in the format expected by the MCP server
@@ -801,7 +859,72 @@ func HandleDatabase(ctx context.Context, request server.ToolCallRequest) (interf
 		"content": []map[string]interface{}{
 			{
 				"type": "text",
-				"text": fmt.Sprintf("Query result: %v", result),
+				"text": fmt.Sprintf("Query result: %v", account),
+			},
+		},
+	}, nil
+}
+
+// HandleGetAllCategories handles requests to get all categories
+func HandleGetAllCategories(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
+	log.Printf("Handling get all categories tool call with name: %s", request.Name)
+
+	// Create a new QueryOps instance
+	// In a real application, you would inject this dependency
+	queryOps, err := ops.NewQueryOps(ops.WithGormDB(nil)) // Replace nil with actual DB connection
+	if err != nil {
+		return nil, fmt.Errorf("failed to create query ops: %v", err)
+	}
+
+	categories, err := queryOps.GetAllCategories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get categories: %v", err)
+	}
+
+	// Return the response in the format expected by the MCP server
+	return map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": fmt.Sprintf("Query result: %v", categories),
+			},
+		},
+	}, nil
+}
+
+// HandleGetTransactionsByAccount handles requests to get transactions by account ID
+func HandleGetTransactionsByAccount(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
+	log.Printf("Handling get transactions by account tool call with name: %s", request.Name)
+
+	// Extract account ID parameter
+	accountIDStr, ok := request.Parameters["account_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'account_id' parameter")
+	}
+
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %v", err)
+	}
+
+	// Create a new QueryOps instance
+	// In a real application, you would inject this dependency
+	queryOps, err := ops.NewQueryOps(ops.WithGormDB(nil)) // Replace nil with actual DB connection
+	if err != nil {
+		return nil, fmt.Errorf("failed to create query ops: %v", err)
+	}
+
+	transactions, err := queryOps.GetTransactionsByAccountID(ctx, uint(accountID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transactions: %v", err)
+	}
+
+	// Return the response in the format expected by the MCP server
+	return map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": fmt.Sprintf("Query result: %v", transactions),
 			},
 		},
 	}, nil
@@ -813,31 +936,67 @@ func HandleDatabase(ctx context.Context, request server.ToolCallRequest) (interf
 Next, we need to register our database tool with the MCP server in the main.go file:
 
 ```go
-// Create the database tool
-databaseTool := tools.NewTool("database",
-	tools.WithDescription("Queries the database for financial data"),
-	tools.WithString("query_type",
-		tools.Description("The type of query to execute (get_all_accounts, get_account_by_id, get_all_categories, get_transactions_by_account)"),
-		tools.Required(),
-	),
+// Create the get all accounts tool
+getAllAccountsTool := tools.NewTool("get_all_accounts",
+	tools.WithDescription("Retrieves all accounts from the database"),
+)
+
+// Register the get all accounts tool with the MCP server
+err = mcpServer.AddTool(ctx, getAllAccountsTool, handler.HandleGetAllAccounts)
+if err != nil {
+	logger.Fatalf("Error adding get all accounts tool: %v", err)
+}
+
+// Create the get account by ID tool
+getAccountByIdTool := tools.NewTool("get_account_by_id",
+	tools.WithDescription("Retrieves an account by its ID"),
 	tools.WithString("account_id",
-		tools.Description("The account ID for account-specific queries"),
-		tools.Optional(),
+		tools.Description("The ID of the account to retrieve"),
+		tools.Required(),
 	),
 )
 
-// Register the database tool with the MCP server
-err = mcpServer.AddTool(ctx, databaseTool, handler.HandleDatabase)
+// Register the get account by ID tool with the MCP server
+err = mcpServer.AddTool(ctx, getAccountByIdTool, handler.HandleGetAccountById)
 if err != nil {
-	logger.Fatalf("Error adding database tool: %v", err)
+	logger.Fatalf("Error adding get account by ID tool: %v", err)
 }
 
-logger.Printf("- database\n")
+// Create the get all categories tool
+getAllCategoriesTool := tools.NewTool("get_all_categories",
+	tools.WithDescription("Retrieves all categories from the database"),
+)
+
+// Register the get all categories tool with the MCP server
+err = mcpServer.AddTool(ctx, getAllCategoriesTool, handler.HandleGetAllCategories)
+if err != nil {
+	logger.Fatalf("Error adding get all categories tool: %v", err)
+}
+
+// Create the get transactions by account tool
+getTransactionsByAccountTool := tools.NewTool("get_transactions_by_account",
+	tools.WithDescription("Retrieves all transactions for a specific account"),
+	tools.WithString("account_id",
+		tools.Description("The ID of the account to retrieve transactions for"),
+		tools.Required(),
+	),
+)
+
+// Register the get transactions by account tool with the MCP server
+err = mcpServer.AddTool(ctx, getTransactionsByAccountTool, handler.HandleGetTransactionsByAccount)
+if err != nil {
+	logger.Fatalf("Error adding get transactions by account tool: %v", err)
+}
+
+logger.Printf("- get_all_accounts\n")
+logger.Printf("- get_account_by_id\n")
+logger.Printf("- get_all_categories\n")
+logger.Printf("- get_transactions_by_account\n")
 ```
 
-#### 4. Using the Database Tool
+#### 4. Using the Database Tools
 
-Once implemented, you can use the database tool to query financial data from the database. Here are some example queries:
+Once implemented, you can use the database tools to query financial data from the database. Here are some example queries:
 
 1. **Get All Accounts**:
 ```json
@@ -846,10 +1005,8 @@ Once implemented, you can use the database tool to query financial data from the
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "database",
-    "parameters": {
-      "query_type": "get_all_accounts"
-    }
+    "name": "get_all_accounts",
+    "parameters": {}
   }
 }
 ```
@@ -861,9 +1018,8 @@ Once implemented, you can use the database tool to query financial data from the
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "database",
+    "name": "get_account_by_id",
     "parameters": {
-      "query_type": "get_account_by_id",
       "account_id": "1"
     }
   }
@@ -877,10 +1033,8 @@ Once implemented, you can use the database tool to query financial data from the
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "database",
-    "parameters": {
-      "query_type": "get_all_categories"
-    }
+    "name": "get_all_categories",
+    "parameters": {}
   }
 }
 ```
@@ -892,9 +1046,8 @@ Once implemented, you can use the database tool to query financial data from the
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "database",
+    "name": "get_transactions_by_account",
     "parameters": {
-      "query_type": "get_transactions_by_account",
       "account_id": "1"
     }
   }
