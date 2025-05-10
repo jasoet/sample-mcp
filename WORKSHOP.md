@@ -804,9 +804,20 @@ import (
 func HandleGetAllAccounts(ctx context.Context, request server.ToolCallRequest) (interface{}, error) {
 	log.Printf("Handling get all accounts tool call with name: %s", request.Name)
 
-	// Create a new QueryOps instance
-	// In a real application, you would inject this dependency
-	queryOps, err := ops.NewQueryOps(ops.WithGormDB(nil)) // Replace nil with actual DB connection
+	// Load configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %v", err)
+	}
+
+	// Get database connection pool
+	pool, err := cfg.Database.Pool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database pool: %v", err)
+	}
+
+	// Create a new QueryOps instance with the database connection
+	queryOps, err := ops.NewQueryOps(ops.WithGormDB(pool))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create query ops: %v", err)
 	}
